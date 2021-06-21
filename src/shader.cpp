@@ -39,12 +39,6 @@ int Shader::loadShader(const char* filePath, int type){
 		case GL_FRAGMENT_SHADER:
 			typeS = "FRAGMENT";
 			break;
-		case GL_TESS_CONTROL_SHADER:
-			typeS = "CONTROL";
-			break;
-		case GL_TESS_EVALUATION_SHADER:
-			typeS = "EVALUATION";
-			break;
 	}
 	checkCompileErrors(shaderID, typeS);
 
@@ -55,11 +49,7 @@ int Shader::loadShader(const char* filePath, int type){
 	return 0;
 }
 
-//Shader::~Shader(){
-	//glDeleteProgram(programID);
-//}
-
-void Shader::deleteProgram() {
+Shader::~Shader(){
 	glDeleteProgram(programID);
 }
 
@@ -96,20 +86,4 @@ int Shader::checkCompileErrors(unsigned int shader, std::string type) {
 		}
 	}
 	return 0;
-}
-
-void Shader::setUniform(const std::string &name, const glm::mat4 &v) const{
-	glUniformMatrix4fv(glGetUniformLocation(programID, name.c_str()), 1, GL_FALSE, &v[0][0]);
-}
-void Shader::setUniform(const std::string &name, const glm::vec3 &v) const{
-	setUniform(name, v.x, v.y, v.z);
-}
-void Shader::setUniform(const std::string &name, const int v) const{
-	glUniform1i(glGetUniformLocation(programID, name.c_str()), v);
-}
-void Shader::setUniform(const std::string &name, const float v) const{
-	glUniform1f(glGetUniformLocation(programID, name.c_str()), v);
-}
-void Shader::setUniform(const std::string &name, const float a, const float b, const float c) const {
-	glUniform3f(glGetUniformLocation(programID, name.c_str()), a, b, c);
 }

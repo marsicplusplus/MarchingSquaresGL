@@ -1,11 +1,7 @@
-#version 420
+#version 420 core
 
-layout (location = 0) in vec3 vp;
-layout (location = 1) in float vColor;
+layout (location = 0) in vec3 vPos;
 
-out vec3 fColor;
-
-void main(){
-	fColor = vec3(vColor);
-	gl_Position = vec4(vp, 1.0);
+void main(void) {
+	gl_Position = vec4(vPos, 1.0);
 }
