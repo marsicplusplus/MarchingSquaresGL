@@ -6,6 +6,6 @@ layout (location = 1) in float vColor;
 out vec3 fColor;
 
 void main(){
-	fColor = vec3(vColor, 0.0, 0.5);
+	fColor = vec3(vColor);
 	gl_Position = vec4(vp, 1.0);
 }
