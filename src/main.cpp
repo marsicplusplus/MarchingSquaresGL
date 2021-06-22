@@ -1,6 +1,8 @@
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 #include <cstdio>
+#include <cstdlib>
+#include <ctime>
 #include <vector>
 #include "shader.hpp"
 
@@ -22,9 +24,9 @@ struct sphere_t {
 	};
 };
 
-int g_winWidth = 800.0f;
-int g_winHeight = 800.0f;
-int g_res = 100;
+int g_winWidth = 1000.0f;
+int g_winHeight = 1000.0f;
+int g_res = 3;
 
 std::vector<vec3f> g_isolines;
 GLuint g_isolineVBO, g_isolineVAO;
@@ -36,6 +38,7 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
 void setupGrid();
 
 int main() {
+	srand(time(NULL));
 	GLFWwindow *window = initGL();
 	if(!window){
 		fprintf(stderr, "ERROR: something bad happened during GLFW initialization, exiting...\n");
@@ -48,7 +51,14 @@ int main() {
 		return -1;
 	}
 
-	spheres.push_back({{0.0f, 0.0f}, {0.0f, 0.0f}, 0.25f});
+	for(int i = 0; i < std::rand() % 30 + 1; i++){
+		float rad = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX/0.3f);
+		float x = (std::rand() % 2 == 0) ? -1.0f + rad : 0.0f;
+		float y = (std::rand() % 2 == 0) ? 1.0f - rad : 0.0f;
+		float velx  = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX/0.010f);
+		float vely = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX/0.010f);
+		spheres.push_back({{x, y}, {velx, vely}, rad});
+	}
 
 	glGenVertexArrays(1, &g_isolineVAO);
 	glGenBuffers(1, &g_isolineVBO);
@@ -63,27 +73,49 @@ int main() {
 	setupGrid();
 
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	const double fpsLimit = 1.0/12.0;
-	double lastUpdateTime = 0;
-	double lastFrameTime = 0;
+	glLineWidth(2.0f);
+
+	const double fpsLimit = 1.0/60.0;
+	double lastTime = glfwGetTime();
+	double timer = lastTime;
+	double dt = 0, nowTime = 0;
+	int frames = 0, updates = 0;
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
 
-		double now = glfwGetTime();
-		double dt = now - lastUpdateTime;
+		nowTime = glfwGetTime();
+		dt += (nowTime - lastTime) / fpsLimit;
+		lastTime = nowTime;
 
-		if((now - lastFrameTime) >= fpsLimit) {
-			glClear(GL_COLOR_BUFFER_BIT);
-			glViewport(0, 0, g_winWidth, g_winHeight);
+		while(dt >= 1.0){
+			for(auto &s : spheres){
+				if(s.pos.x - s.rad < -1 || s.pos.x + s.rad > 1) s.vel.x = -s.vel.x;
+				if(s.pos.y - s.rad < -1 || s.pos.y + s.rad > 1) s.vel.y = -s.vel.y;
+				s.pos.x += s.vel.x * dt;
+				s.pos.y += s.vel.y * dt;
+			}
+			setupGrid();
 
-			glBindVertexArray(g_isolineVAO);
-			glDrawArrays(GL_LINES, 0, g_isolines.size());
-			glBindVertexArray(0);
-
-			glfwSwapBuffers(window);
-			lastFrameTime = now;
+			updates++;
+			dt--;
 		}
-		lastUpdateTime = now;
+		
+		glClear(GL_COLOR_BUFFER_BIT);
+		glViewport(0, 0, g_winWidth, g_winHeight);
+
+		glBindVertexArray(g_isolineVAO);
+		glDrawArrays(GL_LINES, 0, g_isolines.size());
+		glBindVertexArray(0);
+
+		glfwSwapBuffers(window);
+		
+		frames++;
+		// - Reset after one second
+		if (glfwGetTime() - timer > 1.0) {
+			timer ++;
+			printf("FPS: %d Updates: %d\n", frames, updates);
+			updates = 0, frames = 0;
+		}
 	}
 
 	glfwTerminate();
@@ -118,6 +150,7 @@ int getState(int a, int b, int c, int d) {
 }
 
 void setupGrid() {
+	g_isolines.clear();
 	float wQuads = g_winWidth / g_res + 1;
 	float hQuads = g_winHeight/ g_res + 1;
 	float quadHeight = 2.0f/static_cast<float>(hQuads);
@@ -125,25 +158,23 @@ void setupGrid() {
 	std::vector<int> val(wQuads * hQuads);
 	for(int i = 0; i < hQuads; i++) {
 		float y = 2.0f * static_cast<float>(i) / hQuads - 1.0f;
-		for(int j = 0; j < hQuads; j++) {
+		for(int j = 0; j < wQuads; j++) {
 			float x = 2.0f * static_cast<float>(j) / wQuads - 1.0f;
 			float res = 0.0f; 
 			for(auto s : spheres)
 				res += s.dist(x, y);
-			val[i * hQuads + j] = res < 1 ? 0 : 1;
-			//printf("(%f, %f): %f\n", x, y, val[i * hQuads + j]);
+			val[j * wQuads + i] = res < 1 ? 0 : 1;
 		}
 	}
 	for(int i = 0; i < hQuads - 1; i++) {
 		float y = 2.0f * static_cast<float>(i) / hQuads - 1.0f;
-		for(int j = 0; j < hQuads - 1; j++) {
+		for(int j = 0; j < wQuads - 1; j++) {
 			float x = 2.0f * static_cast<float>(j) / wQuads - 1.0f;
-			int a = val[i * hQuads + j];
-			int b = val[i * hQuads + j+1];
-			int c = val[(i+1) * hQuads + (j+1)];
-			int d = val[(i+1) * hQuads + j];
+			int a = val[j * wQuads + i];
+			int b = val[j * wQuads + i+1];
+			int c = val[(j+1) * wQuads + (i+1)];
+			int d = val[(j+1) * wQuads + i];
 			int state = getState(a, b, c, d);
-
 			switch(state){
 				case 0:
 				case 15:
@@ -161,7 +192,7 @@ void setupGrid() {
 				case 3:
 				case 12:
 						g_isolines.push_back({x + quadWidth / 2.0f, y + quadHeight, 0.0f});
-						g_isolines.push_back({x + quadWidth, y, 0.0f});
+						g_isolines.push_back({x + quadWidth / 2.0f, y, 0.0f});
 					break;
 				case 4:
 				case 11:
